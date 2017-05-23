@@ -1,0 +1,28 @@
+﻿#pragma strict
+
+var Puerta: GameObject;
+var TipoDeBoton: String ;
+var timer: int;
+var destruir: boolean;
+
+function Start () {
+    if (destruir){
+        timer -= 1;
+        if (timer <= 0){
+            Destroy(gameObject);
+        }
+    }
+}
+
+function Update () {
+
+}
+function Activar() {
+    anim.SetBool("Explotado", true);
+    if (TipoDeBoton == "AbrePuerta"){
+        destruir = true;
+        Destroy(Puerta);
+        timer = 10;
+
+    }
+}

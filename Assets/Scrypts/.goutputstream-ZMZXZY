@@ -1,0 +1,341 @@
+﻿#pragma strict
+
+var anim : Animator;
+
+//************************************
+// variables de dialogo
+//************************************
+var ha_hablado: boolean;
+var hablando: boolean;
+var NPC: GameObject;
+//***********************************
+// variables de estado de personaje
+//***********************************
+
+var Agachado: boolean;
+var cargaDeSalto: int;
+
+//************************************
+// variables de desplazamiento lateral
+//************************************
+
+var movimientoDer : KeyCode;
+var movimientoIzq : KeyCode;
+public var facing_right: boolean;
+var veloc : float;       //en 2 esta bien
+
+//******************
+//variables de salto
+//******************
+
+var col : Collision2D;
+var Salto : KeyCode;
+var en_piso : boolean;
+var fin_jump: boolean;
+var saltoNatural: boolean;
+var timer: float = 0;
+var tiemp_salto: float;   //en 0.5 esta bien
+
+
+//*******************
+//variables de ataque
+//*******************
+var armaCargada:boolean;
+var sword_offset: Vector3; //distancia de la espada a el pj
+var esp: GameObject;
+var espada: GameObject;
+var dash: GameObject;
+var slash: GameObject;
+var nivel: GameObject;
+var ataques: boolean;
+var spawn_position: Vector3;
+
+//*******************
+//Variables del in-bounds
+//*******************
+
+function Start (){
+    anim = GetComponent(Animator);
+    fin_jump = true;
+    en_piso = false;
+    facing_right = true;
+    hablando = false;
+    ha_hablado = false;
+    cargaDeSalto = 0;
+    Agachado = false;
+}
+
+function Update () {
+
+    var Velocidad_vertical = GetComponent.<Rigidbody2D>().velocity.y;
+    if (Velocidad_vertical < 0){
+        en_piso = false;
+        anim.SetBool("Crouch", false);
+        anim.SetBool("Cayendo", true);
+        Agachado = false;
+    }else if (Velocidad_vertical == 0){
+        anim.SetBool("Cayendo", false);
+    }
+    if (Agachado == true){
+        cargaDeSalto = cargaDeSalto -1;
+        if (cargaDeSalto <= 0){
+            upSword();
+            Agachado = false;
+        }
+    }
+    else {
+        MovimientoRegular();
+    }
+    
+}
+function MovimientoRegular(){
+
+    //******************
+    //Movimiento lateral
+    //******************
+    if (Input.GetKey(movimientoDer)){
+        anim.SetBool("Mov_lateral", true);
+        GetComponent.<Rigidbody2D>().velocity.x = veloc;
+        if (transform.localScale.x<0){
+            transform.localScale.x = Mathf.Abs(transform.localScale.x);
+            facing_right = true;            
+        }
+        
+    }
+    else if (Input.GetKey(movimientoIzq)){
+        anim.SetBool("Mov_lateral", true);
+        GetComponent.<Rigidbody2D>().velocity.x = veloc*(-1);
+        if (transform.localScale.x>0){
+            transform.localScale.x = (transform.localScale.x)*(-1);
+            facing_right = false;
+        }
+    }
+    else {
+        anim.SetBool("Mov_lateral", false);
+        GetComponent.<Rigidbody2D>().velocity.x = 0;
+    }
+    
+    //********
+    //Dialogo
+    //********
+    if (ha_hablado){
+        if (Mathf.Abs(NPC.transform.position.x - transform.position.x)>0.5){
+            hablando = false;     
+        }
+    }
+    if (Input.GetButtonDown("Arriba")){
+        if (!hablando){
+            for(var npc : GameObject in GameObject.FindGameObjectsWithTag("NPC")){
+                if (Mathf.Abs(npc.transform.position.x - transform.position.x)<0.25){
+                    ha_hablado = true;
+                    hablando = true;
+                    npc.GetComponent(NPC1).hablando = true;
+                    NPC = npc;
+                    break;
+                }
+            }
+        }
+        else{ 
+            NPC.GetComponent(NPC1).pag_dialogo = NPC.GetComponent(NPC1).pag_dialogo + 1;
+        
+        }
+    }
+    
+    
+    //*****
+    //Salto
+    //*****
+    
+    if ((Input.GetButtonDown("Jump"))&&(en_piso)){
+        timer = 0;
+        transform.position = transform.position + Vector3(0,0.01,0);        
+        GetComponent.<Rigidbody2D>().velocity.y = 4;
+        en_piso = false;
+        fin_jump = false;
+        saltoNatural = true;
+        anim.SetBool("Salto", true);
+    } 
+    
+    //Durante salto
+    
+    if ((!en_piso)&&(!fin_jump)&&(saltoNatural)){
+        timer += Time.deltaTime;
+        
+        if (Input.GetButtonUp("Jump")){
+            GetComponent.<Rigidbody2D>().velocity.y = 0;
+            fin_jump = true;
+        }
+        
+        //else if (timer<0.3){
+        //    rigidbody2D.velocity.y = 3;
+        //}
+        
+        else if (timer>=0.3) {
+            GetComponent.<Rigidbody2D>().velocity.y = 0;
+            fin_jump = true;    
+        }
+    }    
+    AtaquesEspada();
+
+}
+function AtaquesEspada(){
+    //******    
+    //Ataque
+    //******
+    
+    //ataque espada basica
+    
+    if (Input.GetButtonDown("AtaqueBasico")){
+         
+        basicSword();
+    } 
+    
+    //ataque espada movimiento
+    
+    if (Input.GetButtonDown("AtaqueDeMovimiento")){
+         
+        dashSword();
+    } 
+    
+    if (Input.GetButtonDown("AtaqueDeLevante")){
+        if (en_piso){
+            Debug.Log("Soy un papaupa");
+            anim.SetBool("Crouch", true);
+            cargaDeSalto = 30;
+            Agachado = true;
+        }
+    } 
+    
+    if (Input.GetButtonDown("AtaqueADistancia")){
+        if (ArmaCargada){ 
+            SwordShot();
+        }
+    } 
+}
+
+function basicSword(){
+    if (facing_right){
+        sword_offset = Vector3(0.29, -0.05,0);
+        spawn_position = transform.position;
+        spawn_position = spawn_position + sword_offset;
+        Destroy(esp);
+        esp = Instantiate(espada, spawn_position, Quaternion.identity);
+        esp.transform.parent = transform;
+    }
+    else if (!(facing_right)){
+        sword_offset = Vector3(-0.29, -0.05,0);
+        spawn_position = transform.position;
+        spawn_position = spawn_position + sword_offset;
+        Destroy(esp);
+        esp = Instantiate(espada, spawn_position, Quaternion.identity);
+        esp.transform.parent = transform;
+        esp.transform.localScale.x = (transform.localScale.x)*(-1);
+    }
+}
+    
+function dashSword(){
+var x : float;
+var y : float;
+var z : float;
+var i : int;
+
+    if (facing_right){ 
+        y = 0;
+        for (i = 0; i <=10 ; i++){
+            x = (i*(0.1));
+            if (nivel.GetComponent(in_bounds).Check_in_bounds(transform.position + Vector3(x, 0,0))){
+                y = x;
+            }
+            else{
+                break;
+            }
+            transform.position = transform.position + Vector3(y,0,0);
+            sword_offset = Vector3(-y/2, -0.05,0);
+            spawn_position = transform.position;
+            spawn_position = spawn_position + sword_offset;
+            Destroy(esp);
+            esp = Instantiate(dash, spawn_position, Quaternion.identity);
+        }
+    }
+    else if (!(facing_right)){
+        y = 0;
+        for (i = 0; i <=10 ; i++){
+            x = i * (-0.1);
+            if (nivel.GetComponent(in_bounds).Check_in_bounds(transform.position + Vector3(x, 0,0))){
+                y = x;
+            }
+            else
+                break;
+        }
+        transform.position = transform.position + Vector3(y, 0,0);
+        sword_offset = Vector3(-y/2, -0.05,0);
+        spawn_position = transform.position;
+        spawn_position = spawn_position + sword_offset;
+        Destroy(esp);
+        esp = Instantiate(dash, spawn_position, Quaternion.identity);
+    }
+}
+    
+function upSword(){     
+
+    anim.SetBool("Crouch", false);
+    anim.SetBool("Uppercut", true);
+    GetComponent.<Rigidbody2D>().velocity.y = 5;
+    en_piso = false;
+    fin_jump = false;
+    Debug.Log("se uso espada up");
+    if (facing_right){
+        sword_offset = Vector3(0.23, 0.10,0);
+        spawn_position = transform.position;
+        spawn_position = spawn_position + sword_offset;
+        Destroy(esp);
+        esp = Instantiate(espada, spawn_position, Quaternion.identity);
+        esp.layer = 11;
+        esp.transform.position.z = 1;
+        esp.transform.parent = transform;
+    }
+    else if (!(facing_right)){
+        sword_offset = Vector3(-0.23, 0.10,0);
+        spawn_position = transform.position;
+        spawn_position = spawn_position + sword_offset;
+        Destroy(esp);
+        esp = Instantiate(espada, spawn_position, Quaternion.identity);
+        esp.layer = 11;
+        esp.transform.position.z = 1;
+        esp.transform.parent = transform;
+        esp.transform.localScale.x = (transform.localScale.x)*(-1);
+    }    
+} 
+ 
+function SwordShot(){
+    if (facing_right){
+        sword_offset = Vector3(0.29, 0,0);
+        spawn_position = transform.position;
+        spawn_position = spawn_position + sword_offset;
+        Destroy(esp);
+        esp = Instantiate(slash, spawn_position, Quaternion.identity);
+    }
+    else if (!(facing_right)){
+        sword_offset = Vector3(-0.29, 0,0);
+        spawn_position = transform.position;
+        spawn_position = spawn_position + sword_offset;
+        Destroy(esp);
+        esp = Instantiate(slash, spawn_position, Quaternion.identity);
+        esp.transform.localScale.x = (transform.localScale.x)*(-1);
+    }
+ 
+    
+}  
+function OnCollisionEnter2D(col: Collision2D) {
+    if (col.transform.tag == "Ground"){
+        if (en_piso == false){
+            en_piso = true;
+            fin_jump = false; 
+            anim.SetBool("Salto", false);
+            anim.SetBool("Cayendo", false);
+            anim.SetBool("Uppercut", false);
+            saltoNatural = false;       
+        }
+    } 
+}  
+

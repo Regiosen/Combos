@@ -1,0 +1,19 @@
+﻿#pragma strict
+
+var timer: float = 0.5;
+var sword_offset: Vector3;
+var fuente: GameObject;
+var player :GameObject;
+var right: boolean;
+
+function Start () {
+     var player = GameObject.Find("Personaje/PJ");
+}
+
+function Update () {
+    timer -= Time.deltaTime;
+    if (timer <= 0){
+        player.GetComponent(Animator).SetBool("AtaqueBasico", false);
+        Destroy(gameObject);
+    }
+}
